@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AICO - Yangın Algılama Sistemi</title>
-    <link rel="stylesheet" href="HomePageCSS/HomePage.css">
+    <link rel="stylesheet" href="aicofiresystem.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -24,7 +24,7 @@
                         </div>
                         <div class="logo-text">
                             <h1>AICO</h1>
-                            <span class="subtitle"> Fire Detection System</span>
+                            <span class="subtitle"> Fıre Detectıon System</span>
                         </div>
                     </div>
                     
@@ -119,7 +119,6 @@
                         <div class="sensor-header">
                             <div class="sensor-icon">
                                 <i class="fas fa-thermometer-half"></i>
-                                <div class="icon-orbit"></div>
                             </div>
                             <div class="sensor-info">
                                 <h3>Temperature</h3>
@@ -170,7 +169,6 @@
                         <div class="sensor-header">
                             <div class="sensor-icon">
                                 <i class="fas fa-droplet"></i>
-                                <div class="icon-orbit"></div>
                             </div>
                             <div class="sensor-info">
                                 <h3>Humidity</h3>
@@ -221,7 +219,6 @@
                         <div class="sensor-header">
                             <div class="sensor-icon">
                                 <i class="fas fa-wind"></i>
-                                <div class="icon-orbit"></div>
                             </div>
                             <div class="sensor-info">
                                 <h3>Air Quality</h3>
@@ -272,7 +269,6 @@
                         <div class="sensor-header">
                             <div class="sensor-icon">
                                 <i class="fas fa-smog"></i>
-                                <div class="icon-orbit"></div>
                             </div>
                             <div class="sensor-info">
                                 <h3>Gas Detection</h3>
@@ -323,7 +319,6 @@
                         <div class="sensor-header">
                             <div class="sensor-icon">
                                 <i class="fas fa-temperature-high"></i>
-                                <div class="icon-orbit"></div>
                             </div>
                             <div class="sensor-info">
                                 <h3>Surface Temp</h3>
@@ -362,6 +357,194 @@
                             </div>
                             <div class="threshold-item critical">
                                 <span>Critical: 80°C</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-glow"></div>
+                </div>
+
+                <div class="sensor-card tvoc" data-sensor="tvoc">
+                    <div class="card-background"></div>
+                    <div class="card-content">
+                        <div class="sensor-header">
+                            <div class="sensor-icon">
+                                <i class="fas fa-atom"></i>
+                            </div>
+                            <div class="sensor-info">
+                                <h3>TVOC</h3>
+                                <span class="sensor-type">Volatile Organic</span>
+                            </div>
+                            <div class="sensor-status" id="tvoc-status">
+                                <div class="status-badge normal">NORMAL</div>
+                            </div>
+                        </div>
+                        <div class="sensor-value-display">
+                            <div class="main-value">
+                                <span class="value" id="tvoc-value">350</span>
+                                <span class="unit">ppb</span>
+                            </div>
+                            <div class="value-trend" id="tvoc-trend">
+                                <i class="fas fa-minus"></i>
+                                <span>Stable</span>
+                            </div>
+                        </div>
+                        <div class="sensor-visualization">
+                            <div class="chart-container" id="tvoc-chart"></div>
+                            <div class="gauge-container" id="tvoc-gauge" style="display: none;">
+                                <canvas width="200" height="120"></canvas>
+                                <div class="gauge-label">
+                                    <span class="gauge-value" id="tvoc-gauge-value">350</span>
+                                    <span class="gauge-unit">ppb</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sensor-thresholds">
+                            <div class="threshold-item warning">
+                                <span>Warning: 660 ppb</span>
+                            </div>
+                            <div class="threshold-item critical">
+                                <span>Critical: 2200 ppb</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-glow"></div>
+                </div>
+
+                <div class="sensor-card eco2" data-sensor="eco2">
+                    <div class="card-background"></div>
+                    <div class="card-content">
+                        <div class="sensor-header">
+                            <div class="sensor-icon">
+                                <i class="fas fa-leaf"></i>
+                            </div>
+                            <div class="sensor-info">
+                                <h3>eCO2</h3>
+                                <span class="sensor-type">CO2 Equivalent</span>
+                            </div>
+                            <div class="sensor-status" id="eco2-status">
+                                <div class="status-badge normal">NORMAL</div>
+                            </div>
+                        </div>
+                        <div class="sensor-value-display">
+                            <div class="main-value">
+                                <span class="value" id="eco2-value">450</span>
+                                <span class="unit">ppm</span>
+                            </div>
+                            <div class="value-trend" id="eco2-trend">
+                                <i class="fas fa-arrow-trend-up"></i>
+                                <span>+5ppm</span>
+                            </div>
+                        </div>
+                        <div class="sensor-visualization">
+                            <div class="chart-container" id="eco2-chart"></div>
+                            <div class="gauge-container" id="eco2-gauge" style="display: none;">
+                                <canvas width="200" height="120"></canvas>
+                                <div class="gauge-label">
+                                    <span class="gauge-value" id="eco2-gauge-value">450</span>
+                                    <span class="gauge-unit">ppm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sensor-thresholds">
+                            <div class="threshold-item warning">
+                                <span>Warning: 1000 ppm</span>
+                            </div>
+                            <div class="threshold-item critical">
+                                <span>Critical: 2000 ppm</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-glow"></div>
+                </div>
+
+                <div class="sensor-card no2" data-sensor="no2">
+                    <div class="card-background"></div>
+                    <div class="card-content">
+                        <div class="sensor-header">
+                            <div class="sensor-icon">
+                                <i class="fas fa-cloud"></i>
+                            </div>
+                            <div class="sensor-info">
+                                <h3>NO2</h3>
+                                <span class="sensor-type">Nitrogen Dioxide</span>
+                            </div>
+                            <div class="sensor-status" id="no2-status">
+                                <div class="status-badge normal">NORMAL</div>
+                            </div>
+                        </div>
+                        <div class="sensor-value-display">
+                            <div class="main-value">
+                                <span class="value" id="no2-value">20</span>
+                                <span class="unit">ppb</span>
+                            </div>
+                            <div class="value-trend" id="no2-trend">
+                                <i class="fas fa-minus"></i>
+                                <span>Stable</span>
+                            </div>
+                        </div>
+                        <div class="sensor-visualization">
+                            <div class="chart-container" id="no2-chart"></div>
+                            <div class="gauge-container" id="no2-gauge" style="display: none;">
+                                <canvas width="200" height="120"></canvas>
+                                <div class="gauge-label">
+                                    <span class="gauge-value" id="no2-gauge-value">20</span>
+                                    <span class="gauge-unit">ppb</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sensor-thresholds">
+                            <div class="threshold-item warning">
+                                <span>Warning: 50 ppb</span>
+                            </div>
+                            <div class="threshold-item critical">
+                                <span>Critical: 100 ppb</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-glow"></div>
+                </div>
+
+                <div class="sensor-card co" data-sensor="co">
+                    <div class="card-background"></div>
+                    <div class="card-content">
+                        <div class="sensor-header">
+                            <div class="sensor-icon">
+                                <i class="fas fa-skull-crossbones"></i>
+                            </div>
+                            <div class="sensor-info">
+                                <h3>CO</h3>
+                                <span class="sensor-type">Carbon Monoxide</span>
+                            </div>
+                            <div class="sensor-status" id="co-status">
+                                <div class="status-badge normal">NORMAL</div>
+                            </div>
+                        </div>
+                        <div class="sensor-value-display">
+                            <div class="main-value">
+                                <span class="value" id="co-value">5</span>
+                                <span class="unit">ppm</span>
+                            </div>
+                            <div class="value-trend" id="co-trend">
+                                <i class="fas fa-minus"></i>
+                                <span>Stable</span>
+                            </div>
+                        </div>
+                        <div class="sensor-visualization">
+                            <div class="chart-container" id="co-chart"></div>
+                            <div class="gauge-container" id="co-gauge" style="display: none;">
+                                <canvas width="200" height="120"></canvas>
+                                <div class="gauge-label">
+                                    <span class="gauge-value" id="co-gauge-value">5</span>
+                                    <span class="gauge-unit">ppm</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="sensor-thresholds">
+                            <div class="threshold-item warning">
+                                <span>Warning: 25 ppm</span>
+                            </div>
+                            <div class="threshold-item critical">
+                                <span>Critical: 50 ppm</span>
                             </div>
                         </div>
                     </div>
@@ -436,6 +619,6 @@
         <div class="modal-overlay"></div>
     </div>
 
-    <script src="HomePageJS/HomePage.js"></script>
+    <script src="aicofiresystem.js"></script>
 </body>
 </html>

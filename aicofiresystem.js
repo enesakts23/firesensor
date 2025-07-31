@@ -70,6 +70,62 @@ class ModernFireDashboard {
                 trend: { direction: 'up', value: '+0.5°C' },
                 color: '#8a2be2',
                 pattern: 'wave'
+            },
+            tvoc: {
+                id: 'tvoc',
+                name: 'TVOC',
+                unit: 'ppb',
+                current: 350,
+                min: 0,
+                max: 2000,
+                thresholds: { warning: 660, critical: 2200 },
+                history: [],
+                status: 'normal',
+                trend: { direction: 'stable', value: 'Stable' },
+                color: '#34d399',
+                pattern: 'noise'
+            },
+            eco2: {
+                id: 'eco2',
+                name: 'eCO2',
+                unit: 'ppm',
+                current: 450,
+                min: 400,
+                max: 5000,
+                thresholds: { warning: 1000, critical: 2000 },
+                history: [],
+                status: 'normal',
+                trend: { direction: 'up', value: '+5ppm' },
+                color: '#fbbf24',
+                pattern: 'sine'
+            },
+            no2: {
+                id: 'no2',
+                name: 'NO2',
+                unit: 'ppb',
+                current: 20,
+                min: 0,
+                max: 200,
+                thresholds: { warning: 50, critical: 100 },
+                history: [],
+                status: 'normal',
+                trend: { direction: 'stable', value: 'Stable' },
+                color: '#a855f7',
+                pattern: 'random'
+            },
+            co: {
+                id: 'co',
+                name: 'CO',
+                unit: 'ppm',
+                current: 5,
+                min: 0,
+                max: 100,
+                thresholds: { warning: 25, critical: 50 },
+                history: [],
+                status: 'normal',
+                trend: { direction: 'stable', value: 'Stable' },
+                color: '#f87171',
+                pattern: 'cosine'
             }
         };
 
@@ -77,7 +133,7 @@ class ModernFireDashboard {
             isActive: true,
             currentView: 'chart',
             alertCount: 0,
-            sensorCount: 5,
+            sensorCount: 9,
             lastUpdate: new Date(),
             scenario: 'normal'
         };
@@ -85,15 +141,15 @@ class ModernFireDashboard {
         this.scenarios = {
             normal: {
                 name: 'Normal Operation',
-                multipliers: { temperature: 1.0, humidity: 1.0, 'air-quality': 1.0, gas: 1.0, 'surface-temp': 1.0 }
+                multipliers: { temperature: 1.0, humidity: 1.0, 'air-quality': 1.0, gas: 1.0, 'surface-temp': 1.0, tvoc: 1.0, eco2: 1.0, no2: 1.0, co: 1.0 }
             },
             fire_simulation: {
                 name: 'Fire Simulation',
-                multipliers: { temperature: 1.8, humidity: 0.7, 'air-quality': 3.0, gas: 4.0, 'surface-temp': 2.0 }
+                multipliers: { temperature: 1.8, humidity: 0.7, 'air-quality': 3.0, gas: 4.0, 'surface-temp': 2.0, tvoc: 5.0, eco2: 3.5, no2: 6.0, co: 8.0 }
             },
             maintenance: {
                 name: 'Maintenance Mode',
-                multipliers: { temperature: 0.9, humidity: 1.1, 'air-quality': 0.8, gas: 0.6, 'surface-temp': 0.85 }
+                multipliers: { temperature: 0.9, humidity: 1.1, 'air-quality': 0.8, gas: 0.6, 'surface-temp': 0.85, tvoc: 0.9, eco2: 0.9, no2: 0.9, co: 0.9 }
             }
         };
 

@@ -445,8 +445,8 @@ body::before {
 
 .sensors-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
     width: 100%;
 }
 
@@ -565,24 +565,6 @@ body::before {
 
 .sensor-card.surface-temp .sensor-icon {
     background: linear-gradient(135deg, #8a2be2, #ff1493);
-}
-
-.icon-orbit {
-    position: absolute;
-    width: 80px;
-    height: 80px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    border-radius: 50%;
-    border-top: 2px solid rgba(255, 255, 255, 0.6);
-    animation: iconOrbit 3s linear infinite;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-}
-
-@keyframes iconOrbit {
-    0% { transform: translate(-50%, -50%) rotate(0deg); }
-    100% { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
 .sensor-info {
