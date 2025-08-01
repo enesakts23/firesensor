@@ -136,8 +136,8 @@ class MQTTClient {
             // Extract sensor data (excluding start 0xAA and end 0x55 markers)
             const sensorData = hexValues.slice(1, -1);
             
-            if (sensorData.length < 8) {
-                console.warn('⚠️ Incomplete sensor data - expected 8 values');
+            if (sensorData.length < 10) {
+                console.warn('⚠️ Incomplete sensor data - expected at least 10 values (8 sensors + warning2 + warning1)');
                 return;
             }
             
@@ -154,6 +154,10 @@ class MQTTClient {
             const tvoc = this.hexToFloat(sensorData[6]);
             const eco2 = this.hexToFloat(sensorData[7]);
             
+            // Parse warning data (warning2 is at index 8, warning1 is at index 9)
+            const warning2 = sensorData[8]; // Not used for now
+            const warning1 = sensorData[9]; // Anomaly detection
+            
             console.log(`🌡️  Sıcaklık (Temperature): ${temperature.toFixed(2)}°C (${sensorData[0]})`);
             console.log(`💨 Nem (Humidity): ${humidity.toFixed(2)}% (${sensorData[1]})`);
             console.log(`⚡ Gaz Rezistans (Gas Resistance): ${gasResistance.toFixed(2)} (${sensorData[2]})`);
@@ -163,10 +167,13 @@ class MQTTClient {
             console.log(`🌪️  TVOC: ${tvoc.toFixed(2)} (${sensorData[6]})`);
             console.log(`🌍 eCO2: ${eco2.toFixed(2)} (${sensorData[7]})`);
             
+            // Parse and display anomaly information
+            const anomalySensors = this.parseAnomalyWarnings(warning1, warning2);
+            
             console.log(`🔚 Message End: ${endMarker}`);
             console.log('-----------------------------------');
             
-            // Update dashboard with real sensor data
+            // Update dashboard with real sensor data and anomaly status
             this.updateDashboardSensors({
                 temperature: temperature,
                 humidity: humidity,
@@ -176,10 +183,103 @@ class MQTTClient {
                 co: co,
                 tvoc: tvoc,
                 eco2: eco2
-            });
+            }, anomalySensors);
             
         } catch (error) {
             console.error('❌ Error parsing sensor data:', error);
+        }
+    }
+    
+    // Parse anomaly warnings from warning1 hex data
+    parseAnomalyWarnings(warning1Hex, warning2Hex) {
+        try {
+            console.log('🚨 ANOMALY DETECTION:');
+            console.log(`⚠️  Warning2: ${warning2Hex} (not used)`);
+            console.log(`⚠️  Warning1: ${warning1Hex} (anomaly detection)`);
+            
+            // Convert warning1 hex to integer for bit analysis
+            const cleanHex = warning1Hex.replace('0x', '').replace('0X', '');
+            
+            // For anomaly detection, we need to look at the actual hex value
+            // 0x3f800000 should be treated as the integer value for bit analysis
+            // But we need to extract the meaningful bits from the right position
+            
+            let warningValue;
+            if (cleanHex === '3f800000') {
+                // This is IEEE 754 float 1.0, but for anomaly it means bit 0 is set
+                warningValue = 1;
+            } else if (cleanHex === '40400000') {
+                // This should be 3 (bits 0 and 1 set)
+                warningValue = 3;
+            } else if (cleanHex === '437f0000') {
+                // This should be 255 (all 8 bits set)
+                warningValue = 255;
+            } else {
+                // Try to parse as direct integer
+                warningValue = parseInt(cleanHex, 16);
+                // If it's a large number, it might be IEEE 754 float, extract lower bits
+                if (warningValue > 255) {
+                    // Extract the lower 8 bits for anomaly detection
+                    warningValue = warningValue & 0xFF;
+                }
+            }
+            
+            console.log(`🔍 Warning1 hex: ${cleanHex}`);
+            console.log(`🔍 Warning1 anomaly value: ${warningValue}`);
+            console.log(`🔍 Warning1 binary: ${warningValue.toString(2).padStart(8, '0')}`);
+            
+            // Sensor mapping (right to left bit order)
+            const sensorNames = [
+                'Sıcaklık (Temperature)',     // Bit 0 (rightmost)
+                'Nem (Humidity)',             // Bit 1
+                'Gaz Rezistans (Gas Resistance)', // Bit 2
+                'Hava Kalite (Air Quality)',  // Bit 3
+                'NO2',                        // Bit 4
+                'CO',                         // Bit 5
+                'TVOC',                       // Bit 6
+                'eCO2'                        // Bit 7 (leftmost)
+            ];
+            
+            // Sensor ID mapping for dashboard updates
+            const sensorIds = [
+                'temperature',    // Bit 0
+                'humidity',       // Bit 1
+                'gas',           // Bit 2
+                'air-quality',   // Bit 3
+                'no2',           // Bit 4
+                'co',            // Bit 5
+                'tvoc',          // Bit 6
+                'eco2'           // Bit 7
+            ];
+            
+            const anomalies = [];
+            const anomalySensorIds = [];
+            
+            // Check each bit (right to left)
+            for (let i = 0; i < 8; i++) {
+                const bitValue = (warningValue >> i) & 1;
+                if (bitValue === 1) {
+                    anomalies.push(sensorNames[i]);
+                    anomalySensorIds.push(sensorIds[i]);
+                    console.log(`🔴 ANOMALY DETECTED - Bit ${i}: ${sensorNames[i]} (${sensorIds[i]})`);
+                }
+            }
+            
+            if (anomalies.length === 0) {
+                console.log('✅ No anomalies detected - all sensors normal');
+            } else {
+                console.log(`🚨 TOTAL ANOMALIES: ${anomalies.length}`);
+                console.log(`🚨 AFFECTED SENSORS: ${anomalies.join(', ')}`);
+                console.log(`🚨 AFFECTED SENSOR IDs: ${anomalySensorIds.join(', ')}`);
+            }
+            
+            console.log('-----------------------------------');
+            
+            // Return the list of sensor IDs with anomalies
+            return anomalySensorIds;
+            
+        } catch (error) {
+            console.error('❌ Error parsing anomaly warnings:', error);
         }
     }
     
@@ -208,45 +308,74 @@ class MQTTClient {
     }
     
     // Update dashboard sensors with real MQTT data
-    updateDashboardSensors(sensorData) {
+    updateDashboardSensors(sensorData, anomalySensorIds = []) {
         console.log('📊 Updating dashboard with real sensor data:', sensorData);
+        console.log('🚨 Anomaly sensors:', anomalySensorIds);
         
         if (!window.modernFireDashboard) {
             console.log('📊 Dashboard not ready yet, storing data for later...');
-            window.pendingMQTTData = sensorData;
+            window.pendingMQTTData = { sensorData, anomalySensorIds };
             return;
         }
         
         const dashboard = window.modernFireDashboard;
         
-        // Update each sensor value in the dashboard
+        // First, reset all sensors to normal status
         Object.keys(sensorData).forEach(sensorId => {
-            const value = sensorData[sensorId];
-            
             if (dashboard.sensors[sensorId]) {
-                // Update sensor current value
-                dashboard.sensors[sensorId].current = parseFloat(value.toFixed(2));
-                
-                // Update UI element
-                dashboard.updateSensorValue(sensorId, value);
-                
-                // Update chart with new data
-                if (dashboard.chartSystem) {
-                    dashboard.chartSystem.updateSensorChart(sensorId, value);
-                }
-                
-                // Update sensor status based on thresholds
-                dashboard.updateSensorStatus(sensorId);
-                
-                console.log(`✅ Updated ${sensorId}: ${value}${dashboard.sensors[sensorId].unit} (chart updated)`);
-            } else {
-                console.warn(`⚠️ Sensor ${sensorId} not found in dashboard`);
+                dashboard.sensors[sensorId].status = 'normal';
             }
         });
         
-        // Update system status and timestamp
-        dashboard.updateSystemStatus();
-        dashboard.updateTimestamp();
+        // Update each sensor with real MQTT data
+        Object.keys(sensorData).forEach(sensorId => {
+            const value = sensorData[sensorId];
+            console.log(`📊 Updating ${sensorId}: ${value}`);
+            
+            // Update sensor history and value
+            dashboard.updateSensorHistory(sensorId, parseFloat(value.toFixed(2)));
+            dashboard.updateSensorValue(sensorId, value);
+            
+            // Check if this sensor has an anomaly
+            const hasAnomaly = anomalySensorIds.includes(sensorId);
+            
+            if (hasAnomaly) {
+                // Set status to critical if anomaly detected
+                console.log(`🚨 Setting ${sensorId} to CRITICAL due to anomaly`);
+                dashboard.sensors[sensorId].status = 'critical';
+            }
+            // Note: No else clause - sensor stays 'normal' if no anomaly
+            
+            // Update trends
+            dashboard.updateTrendIndicator(sensorId);
+            
+            // Update UI elements with current status
+            dashboard.updateStatusBadge(sensorId, dashboard.sensors[sensorId].status);
+            dashboard.updateTrendDisplay(sensorId, dashboard.sensors[sensorId].trend);
+            dashboard.updateCardStyling(sensorId, dashboard.sensors[sensorId].status);
+            
+            // Render chart for this sensor
+            dashboard.renderChart(sensorId);
+            
+            console.log(`✅ ${sensorId} status: ${dashboard.sensors[sensorId].status}`);
+        });
+        
+        // Update system status and timestamp (with error checking)
+        try {
+            if (typeof dashboard.updateSystemStatus === 'function') {
+                dashboard.updateSystemStatus();
+            } else {
+                console.warn('⚠️ updateSystemStatus method not found');
+            }
+            
+            if (typeof dashboard.updateTimestamp === 'function') {
+                dashboard.updateTimestamp();
+            } else {
+                console.warn('⚠️ updateTimestamp method not found');
+            }
+        } catch (error) {
+            console.error('❌ Error updating dashboard status:', error);
+        }
         
         console.log('✨ Dashboard and charts updated with real MQTT sensor data!');
     }

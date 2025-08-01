@@ -5,13 +5,13 @@ class ModernFireDashboard {
                 id: 'temperature',
                 name: 'Temperature',
                 unit: '°C',
-                current: 24.5,
+                current: 0.0,
                 min: 15,
                 max: 60,
                 thresholds: { warning: 35, critical: 45 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'up', value: '+0.3°C' },
+                trend: { direction: 'stable', value: '0.0°C' },
                 color: '#ff6b35',
                 pattern: 'sine'
             },
@@ -19,13 +19,13 @@ class ModernFireDashboard {
                 id: 'humidity',
                 name: 'Humidity',
                 unit: '%',
-                current: 45.2,
+                current: 0.0,
                 min: 20,
                 max: 85,
                 thresholds: { warning: 30, critical: 80 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'down', value: '-1.2%' },
+                trend: { direction: 'stable', value: '0.0%' },
                 color: '#00d4ff',
                 pattern: 'cosine'
             },
@@ -33,13 +33,13 @@ class ModernFireDashboard {
                 id: 'air-quality',
                 name: 'Air Quality',
                 unit: 'AQI',
-                current: 28,
+                current: 0.0,
                 min: 0,
                 max: 200,
                 thresholds: { warning: 50, critical: 100 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'up', value: '+2 AQI' },
+                trend: { direction: 'stable', value: '0.0 AQI' },
                 color: '#00ff88',
                 pattern: 'noise'
             },
@@ -47,13 +47,13 @@ class ModernFireDashboard {
                 id: 'gas',
                 name: 'Gas Detection',
                 unit: 'ppm',
-                current: 125,
+                current: 0.0,
                 min: 50,
                 max: 800,
                 thresholds: { warning: 300, critical: 500 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'stable', value: 'Stable' },
+                trend: { direction: 'stable', value: '0.0 ppm' },
                 color: '#ffd700',
                 pattern: 'random'
             },
@@ -61,13 +61,13 @@ class ModernFireDashboard {
                 id: 'surface-temp',
                 name: 'Surface Temp',
                 unit: '°C',
-                current: 23.8,
+                current: 0.0,
                 min: 18,
                 max: 90,
                 thresholds: { warning: 60, critical: 80 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'up', value: '+0.5°C' },
+                trend: { direction: 'stable', value: '0.0°C' },
                 color: '#8a2be2',
                 pattern: 'wave'
             },
@@ -75,13 +75,13 @@ class ModernFireDashboard {
                 id: 'tvoc',
                 name: 'TVOC',
                 unit: 'ppb',
-                current: 350,
+                current: 0.0,
                 min: 0,
                 max: 2000,
                 thresholds: { warning: 660, critical: 2200 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'stable', value: 'Stable' },
+                trend: { direction: 'stable', value: '0.0 ppb' },
                 color: '#34d399',
                 pattern: 'noise'
             },
@@ -89,13 +89,13 @@ class ModernFireDashboard {
                 id: 'eco2',
                 name: 'eCO2',
                 unit: 'ppm',
-                current: 450,
+                current: 0.0,
                 min: 400,
                 max: 5000,
                 thresholds: { warning: 1000, critical: 2000 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'up', value: '+5ppm' },
+                trend: { direction: 'stable', value: '0.0 ppm' },
                 color: '#fbbf24',
                 pattern: 'sine'
             },
@@ -103,13 +103,13 @@ class ModernFireDashboard {
                 id: 'no2',
                 name: 'NO2',
                 unit: 'ppb',
-                current: 20,
+                current: 0.0,
                 min: 0,
                 max: 200,
                 thresholds: { warning: 50, critical: 100 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'stable', value: 'Stable' },
+                trend: { direction: 'stable', value: '0.0 ppb' },
                 color: '#a855f7',
                 pattern: 'random'
             },
@@ -117,13 +117,13 @@ class ModernFireDashboard {
                 id: 'co',
                 name: 'CO',
                 unit: 'ppm',
-                current: 5,
+                current: 0.0,
                 min: 0,
                 max: 100,
                 thresholds: { warning: 25, critical: 50 },
                 history: [],
                 status: 'normal',
-                trend: { direction: 'stable', value: 'Stable' },
+                trend: { direction: 'stable', value: '0.0 ppm' },
                 color: '#f87171',
                 pattern: 'cosine'
             }
@@ -163,7 +163,7 @@ class ModernFireDashboard {
         try {
             console.log('🚀 Initializing Modern Fire Detection Dashboard...');
             
-            this.generateHistoricalData();
+            this.initializeEmptyHistory();
             this.setupEventListeners();
             this.initializeUI();
             // Real-time updates now come from MQTT data instead of fake data generation
@@ -183,41 +183,12 @@ class ModernFireDashboard {
         }
     }
 
-    generateHistoricalData() {
+    initializeEmptyHistory() {
+        // Initialize empty history arrays for all sensors - will be filled with real MQTT data
         Object.keys(this.sensors).forEach(sensorId => {
             const sensor = this.sensors[sensorId];
             sensor.history = [];
-            
-            for (let i = 0; i < 50; i++) {
-                const timeIndex = i / 50;
-                let value = sensor.current;
-                
-                switch (sensor.pattern) {
-                    case 'sine':
-                        value += Math.sin(timeIndex * Math.PI * 4) * 2;
-                        break;
-                    case 'cosine':
-                        value += Math.cos(timeIndex * Math.PI * 3) * 3;
-                        break;
-                    case 'wave':
-                        value += Math.sin(timeIndex * Math.PI * 6) * 1.5;
-                        value += Math.cos(timeIndex * Math.PI * 2) * 1;
-                        break;
-                    case 'noise':
-                        value += (Math.random() - 0.5) * 4;
-                        break;
-                    case 'random':
-                    default:
-                        value += (Math.random() - 0.5) * 2;
-                        break;
-                }
-                
-                value += timeIndex * 0.5;
-                value = Math.max(sensor.min, Math.min(sensor.max * 0.8, value));
-                sensor.history.push(parseFloat(value.toFixed(2)));
-            }
-            
-            sensor.current = sensor.history[sensor.history.length - 1];
+            console.log(`📊 Initialized empty history for ${sensorId} - waiting for real MQTT data`);
         });
     }
 
@@ -232,10 +203,26 @@ class ModernFireDashboard {
 
     updateSensorHistory(sensorId, value) {
         const sensor = this.sensors[sensorId];
-        sensor.history.push(value);
-        
-        if (sensor.history.length > 50) {
-            sensor.history.shift();
+        if (sensor) {
+            console.log(`📊 Updating sensor history for ${sensorId}: ${value}`);
+            sensor.history.push(value);
+            
+            if (sensor.history.length > 50) {
+                sensor.history.shift();
+            }
+            
+            // Update current value
+            sensor.current = value;
+            
+            console.log(`📈 Current view: ${this.systemState.currentView}`);
+            console.log(`📈 History length for ${sensorId}: ${sensor.history.length}`);
+            
+            // Always re-render chart regardless of view (for immediate updates)
+            this.renderChart(sensorId);
+            
+            console.log(`✅ Chart rendered for ${sensorId}`);
+        } else {
+            console.warn(`⚠️ Sensor ${sensorId} not found in sensors object`);
         }
     }
 
@@ -468,11 +455,28 @@ class ModernFireDashboard {
     }
 
     renderChart(sensorId) {
+        console.log(`🎨 Attempting to render chart for ${sensorId}`);
         const chartContainer = document.getElementById(`${sensorId}-chart`);
-        if (!chartContainer) return;
+        if (!chartContainer) {
+            console.error(`❌ Chart container not found: ${sensorId}-chart`);
+            return;
+        }
+        console.log(`✅ Chart container found for ${sensorId}`);
         
         const sensor = this.sensors[sensorId];
+        if (!sensor) {
+            console.error(`❌ Sensor not found: ${sensorId}`);
+            return;
+        }
+        
         const data = sensor.history;
+        console.log(`📊 Chart data for ${sensorId}:`, data);
+        console.log(`📊 Data length: ${data.length}`);
+        
+        if (data.length === 0) {
+            console.warn(`⚠️ No data available for ${sensorId}`);
+            return;
+        }
         
         chartContainer.innerHTML = '';
         
@@ -671,10 +675,10 @@ class ModernFireDashboard {
             }, 600);
         }
         
-        this.generateNewData();
+        // Only refresh UI with existing real MQTT data - no fake data generation
         this.renderAllSensors();
         this.updateSystemStatus();
-        this.showNotification('Data refreshed successfully', 'success');
+        this.showNotification('Dashboard refreshed - using real MQTT data only', 'success');
     }
 
     runAIAnalysis() {
@@ -789,18 +793,7 @@ class ModernFireDashboard {
         }
         
         if (e.key === 'Escape') {
-            this.hideScenarioModal();
-            this.hideEmergencyModal();
         }
-    }
-
-    handleResize() {
-        this.renderAllSensors();
-    }
-
-    updateSystemStatus() {
-        const stats = this.calculateSystemStats();
-        
         document.getElementById('alertCount').textContent = `${stats.total} Active Alerts`;
         document.getElementById('sensorCount').textContent = `${stats.online} Sensors Online`;
         
@@ -1084,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
             Object.keys(window.pendingMQTTData).forEach(sensorId => {
                 const value = window.pendingMQTTData[sensorId];
                 if (window.modernFireDashboard.sensors[sensorId]) {
-                    window.modernFireDashboard.sensors[sensorId].current = parseFloat(value.toFixed(2));
+                    window.modernFireDashboard.updateSensorHistory(sensorId, parseFloat(value.toFixed(2)));
                     window.modernFireDashboard.updateSensorValue(sensorId, value);
                     window.modernFireDashboard.updateSensorStatus(sensorId);
                     window.modernFireDashboard.updateTrendIndicator(sensorId);
@@ -1096,4 +1089,8 @@ document.addEventListener('DOMContentLoaded', () => {
         delete window.pendingMQTTData;
         console.log('✅ Pending MQTT data applied to dashboard!');
     }
+    
+    console.log('📡 Dashboard ready for real MQTT data only - no test functions');
+    console.log('📊 Current view:', window.modernFireDashboard?.systemState?.currentView);
+    console.log('🔥 Charts will update automatically when MQTT data arrives!');
 });
