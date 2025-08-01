@@ -166,10 +166,17 @@ class ModernFireDashboard {
             this.generateHistoricalData();
             this.setupEventListeners();
             this.initializeUI();
-            this.startRealTimeUpdates();
+            // Real-time updates now come from MQTT data instead of fake data generation
             this.createParticleEffects();
             
-            console.log('✅ Dashboard initialized successfully');
+            // Initialize chart system
+            if (window.SensorChartSystem) {
+                this.chartSystem = new window.SensorChartSystem(this);
+                this.chartSystem.initializeCharts();
+                console.log('📈 Chart system initialized!');
+            }
+            
+            console.log('✅ Dashboard initialized successfully - Ready for real MQTT data!');
         } catch (error) {
             console.error('❌ Dashboard initialization failed:', error);
             this.showNotification('System initialization failed', 'error');
@@ -214,52 +221,7 @@ class ModernFireDashboard {
         });
     }
 
-    generateNewData() {
-        const scenario = this.scenarios[this.systemState.scenario];
-        
-        Object.keys(this.sensors).forEach(sensorId => {
-            const sensor = this.sensors[sensorId];
-            const multiplier = scenario.multipliers[sensorId] || 1.0;
-            
-            const timeIndex = Date.now() / 10000;
-            let variation = 0;
-            
-            switch (sensor.pattern) {
-                case 'sine':
-                    variation = Math.sin(timeIndex * Math.PI * 2) * 1.5;
-                    break;
-                case 'cosine':
-                    variation = Math.cos(timeIndex * Math.PI * 1.5) * 2;
-                    break;
-                case 'wave':
-                    variation = Math.sin(timeIndex * Math.PI * 3) * 1;
-                    variation += Math.cos(timeIndex * Math.PI) * 0.5;
-                    break;
-                case 'noise':
-                    variation = (Math.random() - 0.5) * 3;
-                    break;
-                case 'random':
-                default:
-                    variation = (Math.random() - 0.5) * 1.5;
-                    break;
-            }
-            
-            variation *= multiplier;
-            const gaussianNoise = this.gaussianRandom() * 0.3;
-            let newValue = sensor.current + variation + gaussianNoise;
-            
-            if (newValue > sensor.max * 0.9) {
-                newValue = sensor.max * 0.9 - Math.abs(variation) * 0.5;
-            } else if (newValue < sensor.min * 1.1) {
-                newValue = sensor.min * 1.1 + Math.abs(variation) * 0.5;
-            }
-            
-            sensor.current = parseFloat(newValue.toFixed(2));
-            this.updateSensorHistory(sensorId, sensor.current);
-            this.updateSensorStatus(sensorId);
-            this.updateTrendIndicator(sensorId);
-        });
-    }
+    // generateNewData method removed - now using real MQTT data instead of fake data generation
 
     gaussianRandom() {
         let u = 0, v = 0;
@@ -885,20 +847,7 @@ class ModernFireDashboard {
         }
     }
 
-    startRealTimeUpdates() {
-        this.updateInterval = setInterval(() => {
-            try {
-                this.generateNewData();
-                this.renderAllSensors();
-                this.updateSystemStatus();
-                this.updateTimestamp();
-                this.checkForAlerts();
-                this.systemState.lastUpdate = new Date();
-            } catch (error) {
-                console.error('Real-time update failed:', error);
-            }
-        }, 1500);
-    }
+    // startRealTimeUpdates method removed - now using real MQTT data instead of fake data generation
 
     checkForAlerts() {
         Object.keys(this.sensors).forEach(sensorId => {
@@ -1122,4 +1071,29 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('🔥 Modern Fire Detection Dashboard v3.0 Ready');
     console.log('🎨 Futuristic UI activated');
     console.log('🧠 AI analysis ready');
+    
+    // Check for pending MQTT data and apply it
+    if (window.pendingMQTTData) {
+        console.log('📡 Applying pending MQTT sensor data to dashboard...');
+        
+        // Use the MQTT client's update method if available
+        if (window.mqttClient && typeof window.mqttClient.updateDashboardSensors === 'function') {
+            window.mqttClient.updateDashboardSensors(window.pendingMQTTData);
+        } else {
+            // Fallback: directly update the dashboard
+            Object.keys(window.pendingMQTTData).forEach(sensorId => {
+                const value = window.pendingMQTTData[sensorId];
+                if (window.modernFireDashboard.sensors[sensorId]) {
+                    window.modernFireDashboard.sensors[sensorId].current = parseFloat(value.toFixed(2));
+                    window.modernFireDashboard.updateSensorValue(sensorId, value);
+                    window.modernFireDashboard.updateSensorStatus(sensorId);
+                    window.modernFireDashboard.updateTrendIndicator(sensorId);
+                }
+            });
+        }
+        
+        // Clear pending data
+        delete window.pendingMQTTData;
+        console.log('✅ Pending MQTT data applied to dashboard!');
+    }
 });
