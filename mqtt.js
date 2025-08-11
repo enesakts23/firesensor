@@ -199,30 +199,89 @@ class MQTTClient {
             
             // Convert warning1 hex to integer for bit analysis
             const cleanHex = warning1Hex.replace('0x', '').replace('0X', '');
+        
+            let warningValue = 0;
+        
+            // More robust parsing approach
+            if (cleanHex.length === 8) {
+                // 4-byte hex value - could be IEEE 754 float or direct integer
+                const fullValue = parseInt(cleanHex, 16);
             
-            // For anomaly detection, we need to look at the actual hex value
-            // 0x3f800000 should be treated as the integer value for bit analysis
-            // But we need to extract the meaningful bits from the right position
-            
-            let warningValue;
-            if (cleanHex === '3f800000') {
-                // This is IEEE 754 float 1.0, but for anomaly it means bit 0 is set
-                warningValue = 1;
-            } else if (cleanHex === '40400000') {
-                // This should be 3 (bits 0 and 1 set)
-                warningValue = 3;
-            } else if (cleanHex === '437f0000') {
-                // This should be 255 (all 8 bits set)
-                warningValue = 255;
-            } else {
-                // Try to parse as direct integer
+                // Check if this looks like an IEEE 754 float pattern
+                // IEEE 754 floats have specific bit patterns we can recognize
+                if (cleanHex.match(/^[34][0-9a-f]8[0-9a-f]{5}$/i)) {
+                    // This looks like an IEEE 754 float, try to extract meaningful bits
+                    // For anomaly detection, we typically want the lower 8 bits
+                    // or extract from specific positions based on the float value
+                
+                    // Convert to float first to see if it's a recognizable pattern
+                    const buffer = new ArrayBuffer(4);
+                    const view = new DataView(buffer);
+                    view.setUint32(0, fullValue, false); // big-endian
+                    const floatValue = view.getFloat32(0, false);
+                
+                    console.log(`🔍 IEEE 754 float value: ${floatValue}`);
+                
+                    // Map common float values to their bit patterns
+                    if (Math.abs(floatValue - 1.0) < 0.001) {
+                        warningValue = 1; // Bit 0 set
+                    } else if (Math.abs(floatValue - 3.0) < 0.001) {
+                        warningValue = 3; // Bits 0,1 set
+                    } else if (Math.abs(floatValue - 255.0) < 0.001) {
+                        warningValue = 255; // All 8 bits set
+                    } else {
+                        // For other float values, try to extract meaningful bits
+                        // Use the integer representation and extract lower 8 bits
+                        warningValue = fullValue & 0xFF;
+                    
+                        // If that gives us 0, try extracting from different positions
+                        if (warningValue === 0) {
+                            // Try extracting from bits 8-15
+                            warningValue = (fullValue >> 8) & 0xFF;
+                            if (warningValue === 0) {
+                                // Try extracting from bits 16-23
+                                warningValue = (fullValue >> 16) & 0xFF;
+                                if (warningValue === 0) {
+                                    // Try extracting from bits 24-31
+                                    warningValue = (fullValue >> 24) & 0xFF;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Direct 4-byte integer, extract the relevant 8 bits
+                    // Try different byte positions to find non-zero anomaly data
+                    warningValue = fullValue & 0xFF; // Lower 8 bits first
+                
+                    if (warningValue === 0) {
+                        warningValue = (fullValue >> 8) & 0xFF; // Next 8 bits
+                        if (warningValue === 0) {
+                            warningValue = (fullValue >> 16) & 0xFF; // Next 8 bits
+                            if (warningValue === 0) {
+                                warningValue = (fullValue >> 24) & 0xFF; // Upper 8 bits
+                            }
+                        }
+                    }
+                }
+            } else if (cleanHex.length <= 2) {
+                // Direct 1-byte value
                 warningValue = parseInt(cleanHex, 16);
-                // If it's a large number, it might be IEEE 754 float, extract lower bits
-                if (warningValue > 255) {
-                    // Extract the lower 8 bits for anomaly detection
-                    warningValue = warningValue & 0xFF;
+            } else {
+                // Other lengths - parse as integer and extract lower 8 bits
+                const fullValue = parseInt(cleanHex, 16);
+                warningValue = fullValue & 0xFF;
+            
+                // If lower 8 bits are 0, try other positions
+                if (warningValue === 0 && fullValue > 0) {
+                    for (let shift = 8; shift < 32; shift += 8) {
+                        warningValue = (fullValue >> shift) & 0xFF;
+                        if (warningValue !== 0) break;
+                    }
                 }
             }
+        
+            // Ensure we have a valid value between 0-255
+            warningValue = Math.max(0, Math.min(255, warningValue));
             
             console.log(`🔍 Warning1 hex: ${cleanHex}`);
             console.log(`🔍 Warning1 anomaly value: ${warningValue}`);
