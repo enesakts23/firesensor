@@ -345,6 +345,23 @@ class ModernFireDashboard {
         });
     }
 
+    handleResize() {
+        // Handle window resize events
+        this.renderAllSensors();
+        
+        // Redraw charts if sensor detail modal is open
+        const modal = document.getElementById('sensorDetailModal');
+        if (modal && modal.classList.contains('show')) {
+            const sensorId = modal.className.replace('sensor-detail-modal ', '').replace(' show', '');
+            const sensor = this.sensors[sensorId];
+            if (sensor) {
+                setTimeout(() => {
+                    this.createHistoricalChart(sensor);
+                }, 100);
+            }
+        }
+    }
+
     initializeUI() {
         this.renderAllSensors();
         this.updateSystemStatus();
@@ -1083,6 +1100,24 @@ class ModernFireDashboard {
         this.createHistoricalChart(sensor);
     }
 
+    // Debug function to test database connection
+    async testDatabaseConnection() {
+        try {
+            const response = await fetch('test_db.php');
+            const result = await response.json();
+            console.log('Database test result:', result);
+            
+            if (result.success) {
+                this.showNotification(`Database OK: ${result.total_records} records found`, 'success');
+            } else {
+                this.showNotification(`Database Error: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Database test failed:', error);
+            this.showNotification(`Database test failed: ${error.message}`, 'error');
+        }
+    }
+
     hideSensorDetail() {
         const modal = document.getElementById('sensorDetailModal');
         if (modal) {
@@ -1166,9 +1201,71 @@ class ModernFireDashboard {
 
         const ctx = canvas.getContext('2d');
         
-        // Generate sample historical data for demonstration
-        const historicalData = this.generateSampleHistoricalData(sensor);
-        
+        // Fetch real data from database
+        this.fetchHistoricalData(sensor).then(historicalData => {
+            if (!historicalData || historicalData.length === 0) {
+                this.drawNoDataMessage(ctx, canvas);
+                return;
+            }
+            
+            this.drawChart(ctx, canvas, historicalData, sensor);
+        }).catch(error => {
+            console.error('Error fetching historical data:', error);
+            this.drawErrorMessage(ctx, canvas);
+        });
+    }
+
+    async fetchHistoricalData(sensor) {
+        try {
+            console.log(`Fetching data for sensor: ${sensor.id}`);
+            
+            const response = await fetch(`get_data.php?sensor=${sensor.id}`);
+            
+            console.log(`Response status: ${response.status}`);
+            
+            if (!response.ok) {
+                // Try to get error details from response
+                let errorText = '';
+                try {
+                    errorText = await response.text();
+                    console.error('Server response:', errorText);
+                } catch (e) {
+                    console.error('Could not read error response');
+                }
+                throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
+            }
+            
+            const result = await response.json();
+            console.log('Received data:', result);
+            
+            if (!result.success) {
+                throw new Error(result.error || 'Failed to fetch data');
+            }
+            
+            // Convert database data to chart format
+            return result.data.map(item => ({
+                time: this.formatTime(item.time),
+                value: item.value,
+                warning: item.warning
+            }));
+            
+        } catch (error) {
+            console.error('Error fetching historical data:', error);
+            
+            // Show notification to user
+            this.showNotification(`Failed to load data for ${sensor.name}: ${error.message}`, 'error');
+            
+            throw error;
+        }
+    }
+
+    formatTime(timeString) {
+        const date = new Date(timeString);
+        return date.getHours().toString().padStart(2, '0') + ':' + 
+               date.getMinutes().toString().padStart(2, '0');
+    }
+
+    drawChart(ctx, canvas, historicalData, sensor) {
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
@@ -1255,15 +1352,28 @@ class ModernFireDashboard {
         ctx.closePath();
         ctx.fill();
         
-        // Draw data points
-        ctx.fillStyle = sensor.color;
+        // Draw data points with warning status colors
         historicalData.forEach((point, index) => {
             const x = padding + (chartWidth * index / (historicalData.length - 1));
             const y = padding + chartHeight - ((point.value - minValue) / valueRange * chartHeight);
             
+            // Set color based on warning status
+            let pointColor = sensor.color;
+            if (point.warning === 'warning') {
+                pointColor = '#ff6b35';
+            } else if (point.warning === 'critical') {
+                pointColor = '#ff3b5c';
+            }
+            
+            ctx.fillStyle = pointColor;
             ctx.beginPath();
             ctx.arc(x, y, 4, 0, Math.PI * 2);
             ctx.fill();
+            
+            // Add a white border for better visibility
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 1;
+            ctx.stroke();
         });
         
         // Draw axis labels
@@ -1279,63 +1389,55 @@ class ModernFireDashboard {
             ctx.fillText(value.toFixed(1), padding - 10, y + 4);
         }
         
-        // X-axis labels (time)
+        // X-axis labels (time) - show every few points to avoid crowding
         ctx.textAlign = 'center';
-        for (let i = 0; i <= 6; i++) {
-            const x = padding + (chartWidth * i / 6);
-            const time = historicalData[Math.floor((historicalData.length - 1) * i / 6)]?.time || '';
+        const labelCount = Math.min(6, historicalData.length);
+        for (let i = 0; i < labelCount; i++) {
+            const dataIndex = Math.floor((historicalData.length - 1) * i / (labelCount - 1));
+            const x = padding + (chartWidth * i / (labelCount - 1));
+            const time = historicalData[dataIndex]?.time || '';
             ctx.fillText(time, x, height - 10);
         }
     }
 
-    generateSampleHistoricalData(sensor) {
-        const data = [];
-        const now = new Date();
-        const baseValue = sensor.current;
+    drawNoDataMessage(ctx, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
         
-        // Generate 24 hours of sample data (1 point per hour)
-        for (let i = 23; i >= 0; i--) {
-            const time = new Date(now.getTime() - i * 60 * 60 * 1000);
-            const timeStr = time.getHours().toString().padStart(2, '0') + ':00';
-            
-            // Generate realistic variations based on sensor type
-            let value = baseValue;
-            const variation = this.getSensorVariation(sensor.id, i);
-            value += variation;
-            
-            // Keep within reasonable bounds
-            value = Math.max(sensor.min, Math.min(sensor.max, value));
-            
-            data.push({
-                time: timeStr,
-                value: value
-            });
-        }
+        ctx.clearRect(0, 0, rect.width, rect.height);
         
-        return data;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '16px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('No historical data available', rect.width / 2, rect.height / 2);
     }
 
-    getSensorVariation(sensorId, hourOffset) {
-        const patterns = {
-            'temperature': (h) => Math.sin(h * Math.PI / 12) * 5 + Math.random() * 2 - 1,
-            'humidity': (h) => Math.cos(h * Math.PI / 12) * 10 + Math.random() * 5 - 2.5,
-            'air-quality': (h) => Math.random() * 20 - 10,
-            'gas': (h) => Math.random() * 50 - 25,
-            'surface-temp': (h) => Math.sin(h * Math.PI / 12) * 8 + Math.random() * 3 - 1.5,
-            'tvoc': (h) => Math.random() * 100 - 50,
-            'eco2': (h) => Math.random() * 200 - 100,
-            'no2': (h) => Math.random() * 10 - 5,
-            'co': (h) => Math.random() * 5 - 2.5
-        };
+    drawErrorMessage(ctx, canvas) {
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
         
-        const pattern = patterns[sensorId] || ((h) => Math.random() * 10 - 5);
-        return pattern(hourOffset);
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        
+        ctx.fillStyle = 'rgba(255, 107, 53, 0.7)';
+        ctx.font = '16px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('Error loading data', rect.width / 2, rect.height / 2);
     }
+
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     
     window.modernFireDashboard = new ModernFireDashboard();
+    
+    // Debug function - global access
+    window.testDB = function() {
+        window.modernFireDashboard.testDatabaseConnection();
+    };
     
     window.AICO = {
         dashboard: window.modernFireDashboard,
