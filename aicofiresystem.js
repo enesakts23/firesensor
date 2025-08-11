@@ -1243,11 +1243,19 @@ class ModernFireDashboard {
             }
             
             // Convert database data to chart format
-            return result.data.map(item => ({
+            const chartData = result.data.map(item => ({
                 time: this.formatTime(item.time),
                 value: item.value,
                 warning: item.warning
             }));
+            
+            // Debug: Check for anomalies
+            const anomalies = chartData.filter(point => 
+                point.warning === 'warning' || point.warning === 'critical'
+            );
+            console.log(`⚠️ Found ${anomalies.length} anomalies for ${sensor.id}:`, anomalies);
+            
+            return chartData;
             
         } catch (error) {
             console.error('Error fetching historical data:', error);
@@ -1330,6 +1338,9 @@ class ModernFireDashboard {
         });
         ctx.stroke();
         
+        // Draw anomaly background areas
+        this.drawAnomalyAreas(ctx, historicalData, padding, chartWidth, chartHeight, minValue, valueRange);
+        
         // Draw gradient fill
         const gradient = ctx.createLinearGradient(0, padding, 0, padding + chartHeight);
         gradient.addColorStop(0, sensor.color + '40');
@@ -1352,28 +1363,52 @@ class ModernFireDashboard {
         ctx.closePath();
         ctx.fill();
         
-        // Draw data points with warning status colors
+        // Draw data points with warning status colors and anomaly indicators
         historicalData.forEach((point, index) => {
             const x = padding + (chartWidth * index / (historicalData.length - 1));
             const y = padding + chartHeight - ((point.value - minValue) / valueRange * chartHeight);
             
-            // Set color based on warning status
+            // Set color and size based on warning status
             let pointColor = sensor.color;
-            if (point.warning === 'warning') {
+            let pointSize = 4;
+            let glowIntensity = 0;
+            
+            if (point.warning === 'warning' || point.warning === 'Warning') {
                 pointColor = '#ff6b35';
-            } else if (point.warning === 'critical') {
+                pointSize = 6;
+                glowIntensity = 10;
+            } else if (point.warning === 'critical' || point.warning === 'Critical') {
                 pointColor = '#ff3b5c';
+                pointSize = 8;
+                glowIntensity = 15;
             }
             
+            // Draw glow effect for anomalies
+            if (glowIntensity > 0) {
+                ctx.shadowColor = pointColor;
+                ctx.shadowBlur = glowIntensity;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 0;
+            }
+            
+            // Draw main point
             ctx.fillStyle = pointColor;
             ctx.beginPath();
-            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.arc(x, y, pointSize, 0, Math.PI * 2);
             ctx.fill();
             
-            // Add a white border for better visibility
+            // Reset shadow
+            ctx.shadowBlur = 0;
+            
+            // Add white border for better visibility
             ctx.strokeStyle = 'white';
-            ctx.lineWidth = 1;
+            ctx.lineWidth = 2;
             ctx.stroke();
+            
+            // Add warning icon for critical anomalies
+            if (point.warning === 'critical' || point.warning === 'Critical') {
+                this.drawWarningIcon(ctx, x, y - 15, 8);
+            }
         });
         
         // Draw axis labels
@@ -1398,6 +1433,87 @@ class ModernFireDashboard {
             const time = historicalData[dataIndex]?.time || '';
             ctx.fillText(time, x, height - 10);
         }
+    }
+
+    // Draw anomaly background areas
+    drawAnomalyAreas(ctx, historicalData, padding, chartWidth, chartHeight, minValue, valueRange) {
+        // Group consecutive anomalies
+        let anomalyGroups = [];
+        let currentGroup = null;
+        
+        historicalData.forEach((point, index) => {
+            const isAnomaly = point.warning === 'warning' || point.warning === 'Warning' || 
+                             point.warning === 'critical' || point.warning === 'Critical';
+            
+            if (isAnomaly) {
+                if (!currentGroup) {
+                    currentGroup = {
+                        start: index,
+                        end: index,
+                        type: point.warning.toLowerCase()
+                    };
+                } else {
+                    currentGroup.end = index;
+                    // Update to more severe if needed
+                    if (point.warning.toLowerCase() === 'critical' && currentGroup.type !== 'critical') {
+                        currentGroup.type = 'critical';
+                    }
+                }
+            } else {
+                if (currentGroup) {
+                    anomalyGroups.push(currentGroup);
+                    currentGroup = null;
+                }
+            }
+        });
+        
+        // Add the last group if it exists
+        if (currentGroup) {
+            anomalyGroups.push(currentGroup);
+        }
+        
+        // Draw background areas for anomaly groups
+        anomalyGroups.forEach(group => {
+            const startX = padding + (chartWidth * group.start / (historicalData.length - 1));
+            const endX = padding + (chartWidth * group.end / (historicalData.length - 1));
+            const width = Math.max(endX - startX, 10); // Minimum width for visibility
+            
+            // Set color based on anomaly type
+            let backgroundColor = group.type === 'critical' ? 
+                'rgba(255, 59, 92, 0.15)' : 'rgba(255, 107, 53, 0.15)';
+            
+            ctx.fillStyle = backgroundColor;
+            ctx.fillRect(startX - 5, padding, width + 10, chartHeight);
+            
+            // Add border
+            ctx.strokeStyle = group.type === 'critical' ? 
+                'rgba(255, 59, 92, 0.3)' : 'rgba(255, 107, 53, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(startX - 5, padding, width + 10, chartHeight);
+        });
+    }
+
+    // Draw warning icon
+    drawWarningIcon(ctx, x, y, size) {
+        ctx.save();
+        
+        // Draw triangle background
+        ctx.fillStyle = '#ff3b5c';
+        ctx.beginPath();
+        ctx.moveTo(x, y - size);
+        ctx.lineTo(x - size * 0.8, y + size * 0.5);
+        ctx.lineTo(x + size * 0.8, y + size * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw exclamation mark
+        ctx.fillStyle = 'white';
+        ctx.font = `${size}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('!', x, y - 1);
+        
+        ctx.restore();
     }
 
     drawNoDataMessage(ctx, canvas) {

@@ -12,6 +12,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once 'db_config.php';
 
+// Analyze binary warning string to determine warning level
+function analyzeWarningBinary($binaryString) {
+    if (empty($binaryString) || $binaryString === 'normal') {
+        return 'normal';
+    }
+    
+    // Convert binary string to array of bits
+    $bits = str_split($binaryString);
+    $activeBits = 0;
+    
+    // Count active bits (1s)
+    foreach ($bits as $bit) {
+        if ($bit === '1') {
+            $activeBits++;
+        }
+    }
+    
+    // Check for critical patterns
+    // If more than 4 bits are active, it's critical
+    if ($activeBits >= 4) {
+        return 'critical';
+    }
+    
+    // Check for specific critical patterns (consecutive 1s)
+    if (strpos($binaryString, '1111') !== false || 
+        strpos($binaryString, '11111') !== false) {
+        return 'critical';
+    }
+    
+    // If any bits are active but not critical, it's warning
+    if ($activeBits > 0) {
+        return 'warning';
+    }
+    
+    return 'normal';
+}
+
 // Get sensor type from request
 $sensorType = isset($_GET['sensor']) ? $_GET['sensor'] : '';
 
@@ -93,9 +130,13 @@ try {
             continue;
         }
         
+        // Analyze binary warning string
+        $warningLevel = analyzeWarningBinary($row['warning1']);
+        
         $formattedData[] = [
             'value' => $value,
-            'warning' => $row['warning1'] ?: 'normal',
+            'warning' => $warningLevel,
+            'warning_binary' => $row['warning1'], // Keep original binary for debugging
             'time' => $row['time'],
             'timestamp' => strtotime($row['time'])
         ];
