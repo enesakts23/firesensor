@@ -316,6 +316,26 @@ class ModernFireDashboard {
             });
         });
         
+        // Add sensor card click listeners
+        document.querySelectorAll('.sensor-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                const sensorId = card.dataset.sensor;
+                if (sensorId) {
+                    this.showSensorDetail(sensorId);
+                }
+            });
+        });
+        
+        // Add sensor detail modal event listeners
+        document.getElementById('closeSensorDetail')?.addEventListener('click', () => {
+            this.hideSensorDetail();
+        });
+        
+        // Close modal when clicking on overlay
+        document.querySelector('#sensorDetailModal .modal-overlay')?.addEventListener('click', () => {
+            this.hideSensorDetail();
+        });
+        
         document.addEventListener('keydown', (e) => {
             this.handleKeyboardShortcuts(e);
         });
@@ -770,9 +790,23 @@ class ModernFireDashboard {
         }
         
         if (e.key === 'Escape') {
+            // Close modals with Escape key
+            this.hideEmergencyModal();
+            this.hideScenarioModal();
+            this.hideSensorDetail();
         }
-        document.getElementById('alertCount').textContent = `${stats.total} Active Alerts`;
-        document.getElementById('sensorCount').textContent = `${stats.online} Sensors Online`;
+    }
+
+    updateSystemStatus() {
+        const stats = this.calculateSystemStats();
+        const alertCountEl = document.getElementById('alertCount');
+        const sensorCountEl = document.getElementById('sensorCount');
+        if (alertCountEl) {
+            alertCountEl.textContent = `${stats.total} Active Alerts`;
+        }
+        if (sensorCountEl) {
+            sensorCountEl.textContent = `${stats.online} Sensors Online`;
+        }
         
         this.systemState.alertCount = stats.total;
         this.systemState.sensorCount = stats.online;
@@ -1026,6 +1060,276 @@ class ModernFireDashboard {
         }
         this.systemState.alertCount = stats.total;
         this.systemState.sensorCount = stats.online;
+    }
+
+    // Sensor Detail Modal Functions
+    showSensorDetail(sensorId) {
+        const sensor = this.sensors[sensorId];
+        if (!sensor) return;
+
+        const modal = document.getElementById('sensorDetailModal');
+        if (!modal) return;
+
+        // Set modal class for dynamic styling
+        modal.className = `sensor-detail-modal ${sensorId}`;
+
+        // Update modal content
+        this.updateSensorDetailContent(sensor);
+
+        // Show modal
+        modal.classList.add('show');
+
+        // Create historical chart
+        this.createHistoricalChart(sensor);
+    }
+
+    hideSensorDetail() {
+        const modal = document.getElementById('sensorDetailModal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    updateSensorDetailContent(sensor) {
+        // Update icon
+        const iconElement = document.getElementById('sensorDetailIcon');
+        if (iconElement) {
+            iconElement.className = this.getSensorIcon(sensor.id);
+        }
+
+        // Update title
+        const nameElement = document.getElementById('sensorDetailName');
+        if (nameElement) {
+            nameElement.textContent = sensor.name;
+        }
+
+        const typeElement = document.getElementById('sensorDetailType');
+        if (typeElement) {
+            typeElement.textContent = this.getSensorType(sensor.id);
+        }
+
+        // Update current value
+        const valueElement = document.getElementById('sensorDetailValue');
+        if (valueElement) {
+            valueElement.textContent = sensor.current.toFixed(1);
+        }
+
+        const unitElement = document.getElementById('sensorDetailUnit');
+        if (unitElement) {
+            unitElement.textContent = sensor.unit;
+        }
+
+        // Update status
+        const statusElement = document.getElementById('sensorDetailStatus');
+        if (statusElement) {
+            const badge = statusElement.querySelector('.status-badge');
+            if (badge) {
+                badge.className = `status-badge ${sensor.status}`;
+                badge.textContent = sensor.status.toUpperCase();
+            }
+        }
+    }
+
+    getSensorIcon(sensorId) {
+        const icons = {
+            'temperature': 'fas fa-thermometer-half',
+            'humidity': 'fas fa-tint',
+            'air-quality': 'fas fa-wind',
+            'gas': 'fas fa-smog',
+            'surface-temp': 'fas fa-temperature-high',
+            'tvoc': 'fas fa-atom',
+            'eco2': 'fas fa-leaf',
+            'no2': 'fas fa-cloud',
+            'co': 'fas fa-skull-crossbones'
+        };
+        return icons[sensorId] || 'fas fa-sensor';
+    }
+
+    getSensorType(sensorId) {
+        const types = {
+            'temperature': 'Thermal Sensor',
+            'humidity': 'Humidity Sensor',
+            'air-quality': 'AQI Monitor',
+            'gas': 'Chemical Sensor',
+            'surface-temp': 'Infrared Sensor',
+            'tvoc': 'Volatile Organic',
+            'eco2': 'CO2 Equivalent',
+            'no2': 'Nitrogen Dioxide',
+            'co': 'Carbon Monoxide'
+        };
+        return types[sensorId] || 'Environmental Sensor';
+    }
+
+    createHistoricalChart(sensor) {
+        const canvas = document.getElementById('historicalChart');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        
+        // Generate sample historical data for demonstration
+        const historicalData = this.generateSampleHistoricalData(sensor);
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Set canvas size
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        
+        const width = rect.width;
+        const height = rect.height;
+        
+        // Chart settings
+        const padding = 40;
+        const chartWidth = width - padding * 2;
+        const chartHeight = height - padding * 2;
+        
+        // Find min/max values for scaling
+        const values = historicalData.map(d => d.value);
+        const minValue = Math.min(...values);
+        const maxValue = Math.max(...values);
+        const valueRange = maxValue - minValue || 1;
+        
+        // Draw grid lines
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        
+        // Horizontal grid lines
+        for (let i = 0; i <= 5; i++) {
+            const y = padding + (chartHeight * i / 5);
+            ctx.beginPath();
+            ctx.moveTo(padding, y);
+            ctx.lineTo(padding + chartWidth, y);
+            ctx.stroke();
+        }
+        
+        // Vertical grid lines
+        for (let i = 0; i <= 6; i++) {
+            const x = padding + (chartWidth * i / 6);
+            ctx.beginPath();
+            ctx.moveTo(x, padding);
+            ctx.lineTo(x, padding + chartHeight);
+            ctx.stroke();
+        }
+        
+        // Draw chart line
+        ctx.strokeStyle = sensor.color;
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        
+        ctx.beginPath();
+        historicalData.forEach((point, index) => {
+            const x = padding + (chartWidth * index / (historicalData.length - 1));
+            const y = padding + chartHeight - ((point.value - minValue) / valueRange * chartHeight);
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+        
+        // Draw gradient fill
+        const gradient = ctx.createLinearGradient(0, padding, 0, padding + chartHeight);
+        gradient.addColorStop(0, sensor.color + '40');
+        gradient.addColorStop(1, sensor.color + '00');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        historicalData.forEach((point, index) => {
+            const x = padding + (chartWidth * index / (historicalData.length - 1));
+            const y = padding + chartHeight - ((point.value - minValue) / valueRange * chartHeight);
+            
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.lineTo(padding + chartWidth, padding + chartHeight);
+        ctx.lineTo(padding, padding + chartHeight);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw data points
+        ctx.fillStyle = sensor.color;
+        historicalData.forEach((point, index) => {
+            const x = padding + (chartWidth * index / (historicalData.length - 1));
+            const y = padding + chartHeight - ((point.value - minValue) / valueRange * chartHeight);
+            
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        // Draw axis labels
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '12px Inter';
+        ctx.textAlign = 'center';
+        
+        // Y-axis labels
+        ctx.textAlign = 'right';
+        for (let i = 0; i <= 5; i++) {
+            const value = minValue + (valueRange * (5 - i) / 5);
+            const y = padding + (chartHeight * i / 5);
+            ctx.fillText(value.toFixed(1), padding - 10, y + 4);
+        }
+        
+        // X-axis labels (time)
+        ctx.textAlign = 'center';
+        for (let i = 0; i <= 6; i++) {
+            const x = padding + (chartWidth * i / 6);
+            const time = historicalData[Math.floor((historicalData.length - 1) * i / 6)]?.time || '';
+            ctx.fillText(time, x, height - 10);
+        }
+    }
+
+    generateSampleHistoricalData(sensor) {
+        const data = [];
+        const now = new Date();
+        const baseValue = sensor.current;
+        
+        // Generate 24 hours of sample data (1 point per hour)
+        for (let i = 23; i >= 0; i--) {
+            const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+            const timeStr = time.getHours().toString().padStart(2, '0') + ':00';
+            
+            // Generate realistic variations based on sensor type
+            let value = baseValue;
+            const variation = this.getSensorVariation(sensor.id, i);
+            value += variation;
+            
+            // Keep within reasonable bounds
+            value = Math.max(sensor.min, Math.min(sensor.max, value));
+            
+            data.push({
+                time: timeStr,
+                value: value
+            });
+        }
+        
+        return data;
+    }
+
+    getSensorVariation(sensorId, hourOffset) {
+        const patterns = {
+            'temperature': (h) => Math.sin(h * Math.PI / 12) * 5 + Math.random() * 2 - 1,
+            'humidity': (h) => Math.cos(h * Math.PI / 12) * 10 + Math.random() * 5 - 2.5,
+            'air-quality': (h) => Math.random() * 20 - 10,
+            'gas': (h) => Math.random() * 50 - 25,
+            'surface-temp': (h) => Math.sin(h * Math.PI / 12) * 8 + Math.random() * 3 - 1.5,
+            'tvoc': (h) => Math.random() * 100 - 50,
+            'eco2': (h) => Math.random() * 200 - 100,
+            'no2': (h) => Math.random() * 10 - 5,
+            'co': (h) => Math.random() * 5 - 2.5
+        };
+        
+        const pattern = patterns[sensorId] || ((h) => Math.random() * 10 - 5);
+        return pattern(hourOffset);
     }
 }
 

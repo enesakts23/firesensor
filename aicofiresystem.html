@@ -596,6 +596,40 @@
         <div class="modal-overlay"></div>
     </div>
 
+    <!-- Sensor Detail Modal -->
+    <div class="sensor-detail-modal" id="sensorDetailModal">
+        <div class="modal-content sensor-detail-content">
+            <div class="sensor-detail-header">
+                <div class="sensor-detail-icon">
+                    <i class="fas fa-thermometer-half" id="sensorDetailIcon"></i>
+                </div>
+                <div class="sensor-detail-title">
+                    <h3 id="sensorDetailName">Temperature</h3>
+                    <span id="sensorDetailType">Thermal Sensor</span>
+                </div>
+                <button class="modal-close" id="closeSensorDetail">&times;</button>
+            </div>
+            <div class="sensor-detail-body">
+                <div class="current-value-section">
+                    <div class="current-value-display">
+                        <span class="current-value" id="sensorDetailValue">24.5</span>
+                        <span class="current-unit" id="sensorDetailUnit">°C</span>
+                    </div>
+                    <div class="current-status" id="sensorDetailStatus">
+                        <div class="status-badge normal">NORMAL</div>
+                    </div>
+                </div>
+                <div class="historical-chart-container">
+                    <h4>Historical Data</h4>
+                    <div class="historical-chart" id="sensorDetailChart">
+                        <canvas id="historicalChart" width="800" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-overlay blur-overlay"></div>
+    </div>
+
     <script src="aicofiresystem.js"></script>
 </body>
 </html>
