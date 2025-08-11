@@ -11,12 +11,10 @@ class MQTTClient {
 
     init() {
         try {
-
             this.client = new Paho.MQTT.Client(this.brokerHost, this.brokerPort, this.clientId);
             this.client.onConnectionLost = this.onConnectionLost.bind(this);
             this.client.onMessageArrived = this.onMessageArrived.bind(this);
             this.connect();
-                        
         } catch (error) {
             console.error('❌ MQTT Client initialization failed:', error);
         }
@@ -76,7 +74,6 @@ class MQTTClient {
 
     parseFireSensorData(hexData, timestamp) {
         try {
-
             const parts = hexData.split('0x').filter(part => part.length > 0);
             const hexValues = parts.map(part => '0x' + part);
             if (!hexValues || hexValues.length < 3) return;
@@ -97,23 +94,6 @@ class MQTTClient {
             const warning2 = sensorData[8]; 
             const warning1 = sensorData[9]; 
             const anomalySensorIds = this.parseAnomalyWarnings(warning1, warning2);
-            const cleanHex = warning1.replace('0x', '').replace('0X', '');
-            let warningValue = 0;
-
-            if (cleanHex.length <= 2) {
-                warningValue = parseInt(cleanHex, 16);
-                
-            } else {
-                const fullValue = parseInt(cleanHex, 16);
-                warningValue = fullValue & 0xFF;
-                if (warningValue === 0 && fullValue > 0) {
-                    for (let shift = 8; shift < 32; shift += 8) {
-                        warningValue = (fullValue >> shift) & 0xFF;
-                        if (warningValue !== 0) break;
-                    }
-                }
-            }
-            const binaryString = warningValue.toString(2).padStart(8, '0');
 
             this.updateDashboardSensors({
                 temperature: temperature,
@@ -135,100 +115,34 @@ class MQTTClient {
             console.log('🚨 ANOMALY DETECTION:');
             console.log(`⚠️  Warning1: ${warning1Hex} (anomaly detection)`);
             
-            const cleanHex = warning1Hex.replace('0x', '').replace('0X', '');
-        
-            let warningValue = 0;
-        
-            if (cleanHex.length === 8) {
-
-                const fullValue = parseInt(cleanHex, 16);
-    
-                if (cleanHex.match(/^[34][0-9a-f]8[0-9a-f]{5}$/i)) {
-
-                    const buffer = new ArrayBuffer(4);
-                    const view = new DataView(buffer);
-                    view.setUint32(0, fullValue, false); // big-endian
-                    const floatValue = view.getFloat32(0, false);
-                
-                    console.log(`🔍 IEEE 754 float value: ${floatValue}`);
-                
-                    if (Math.abs(floatValue - 1.0) < 0.001) {
-                        warningValue = 1; // Bit 0 set
-                    } else if (Math.abs(floatValue - 3.0) < 0.001) {
-                        warningValue = 3; // Bits 0,1 set
-                    } else if (Math.abs(floatValue - 255.0) < 0.001) {
-                        warningValue = 255; // All 8 bits set
-                    } else {
-
-                        warningValue = fullValue & 0xFF;
-                    
-                        if (warningValue === 0) {
-                            warningValue = (fullValue >> 8) & 0xFF;
-                            if (warningValue === 0) {
-                                warningValue = (fullValue >> 16) & 0xFF;
-                                if (warningValue === 0) {
-                                    warningValue = (fullValue >> 24) & 0xFF;
-                                }
-                            }
-                        }
-                    }
-                } else {
-
-                    warningValue = fullValue & 0xFF; // Lower 8 bits first
-                
-                    if (warningValue === 0) {
-                        warningValue = (fullValue >> 8) & 0xFF; // Next 8 bits
-                        if (warningValue === 0) {
-                            warningValue = (fullValue >> 16) & 0xFF; // Next 8 bits
-                            if (warningValue === 0) {
-                                warningValue = (fullValue >> 24) & 0xFF; // Upper 8 bits
-                            }
-                        }
-                    }
-                }
-            } else if (cleanHex.length <= 2) {
-
-                warningValue = parseInt(cleanHex, 16);
-            } else {
-
-                const fullValue = parseInt(cleanHex, 16);
-                warningValue = fullValue & 0xFF;
+            const floatValue = this.hexToFloat(warning1Hex);
+            const warningValue = Math.round(floatValue);
             
-                if (warningValue === 0 && fullValue > 0) {
-                    for (let shift = 8; shift < 32; shift += 8) {
-                        warningValue = (fullValue >> shift) & 0xFF;
-                        if (warningValue !== 0) break;
-                    }
-                }
-            }
-        
-            warningValue = Math.max(0, Math.min(255, warningValue));
-            
-            console.log(`🔍 Warning1 hex: ${cleanHex}`);
+            console.log(`🔍 Warning1 hex: ${warning1Hex}`);
+            console.log(`🔍 Warning1 float value: ${floatValue}`);
             console.log(`🔍 Warning1 anomaly value: ${warningValue}`);
             console.log(`🔍 Warning1 binary: ${warningValue.toString(2).padStart(8, '0')}`);
             
             const sensorNames = [
-                'Sıcaklık (Temperature)',     // Bit 0 (rightmost)
-                'Nem (Humidity)',             // Bit 1
-                'Gaz Rezistans (Gas Resistance)', // Bit 2
-                'Hava Kalite (Air Quality)',  // Bit 3
-                'NO2',                        // Bit 4
-                'CO',                         // Bit 5
-                'TVOC',                       // Bit 6
-                'eCO2'                        // Bit 7 (leftmost)
+                'Sıcaklık (Temperature)',
+                'Nem (Humidity)',
+                'Gaz Rezistans (Gas Resistance)',
+                'Hava Kalite (Air Quality)',
+                'NO2',
+                'CO',
+                'TVOC',
+                'eCO2'
             ];
             
-            // Sensor ID mapping for dashboard updates
             const sensorIds = [
-                'temperature',    // Bit 0
-                'humidity',       // Bit 1
-                'gas',           // Bit 2
-                'air-quality',   // Bit 3
-                'no2',           // Bit 4
-                'co',            // Bit 5
-                'tvoc',          // Bit 6
-                'eco2'           // Bit 7
+                'temperature',
+                'humidity',
+                'gas',
+                'air-quality',
+                'no2',
+                'co',
+                'tvoc',
+                'eco2'
             ];
             
             const anomalies = [];
@@ -253,12 +167,12 @@ class MQTTClient {
             
         } catch (error) {
             console.error('❌ Error parsing anomaly warnings:', error);
+            return [];
         }
     }
     
     hexToFloat(hexString) {
         try {
-
             const cleanHex = hexString.replace('0x', '').replace('0X', '');
             const intValue = parseInt(cleanHex, 16);            
             const buffer = new ArrayBuffer(4);
