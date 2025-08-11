@@ -161,22 +161,17 @@ class ModernFireDashboard {
 
     async init() {
         try {
-            console.log('🚀 Initializing Modern Fire Detection Dashboard...');
             
             this.initializeEmptyHistory();
             this.setupEventListeners();
             this.initializeUI();
-            // Real-time updates now come from MQTT data instead of fake data generation
             this.createParticleEffects();
             
-            // Initialize chart system
             if (window.SensorChartSystem) {
                 this.chartSystem = new window.SensorChartSystem(this);
                 this.chartSystem.initializeCharts();
-                console.log('📈 Chart system initialized!');
             }
             
-            console.log('✅ Dashboard initialized successfully - Ready for real MQTT data!');
         } catch (error) {
             console.error('❌ Dashboard initialization failed:', error);
             this.showNotification('System initialization failed', 'error');
@@ -184,15 +179,12 @@ class ModernFireDashboard {
     }
 
     initializeEmptyHistory() {
-        // Initialize empty history arrays for all sensors - will be filled with real MQTT data
+
         Object.keys(this.sensors).forEach(sensorId => {
             const sensor = this.sensors[sensorId];
             sensor.history = [];
-            console.log(`📊 Initialized empty history for ${sensorId} - waiting for real MQTT data`);
         });
     }
-
-    // generateNewData method removed - now using real MQTT data instead of fake data generation
 
     gaussianRandom() {
         let u = 0, v = 0;
@@ -204,23 +196,16 @@ class ModernFireDashboard {
     updateSensorHistory(sensorId, value) {
         const sensor = this.sensors[sensorId];
         if (sensor) {
-            console.log(`📊 Updating sensor history for ${sensorId}: ${value}`);
             sensor.history.push(value);
             
             if (sensor.history.length > 50) {
                 sensor.history.shift();
             }
             
-            // Update current value
             sensor.current = value;
             
-            console.log(`📈 Current view: ${this.systemState.currentView}`);
-            console.log(`📈 History length for ${sensorId}: ${sensor.history.length}`);
-            
-            // Always re-render chart regardless of view (for immediate updates)
             this.renderChart(sensorId);
             
-            console.log(`✅ Chart rendered for ${sensorId}`);
         } else {
             console.warn(`⚠️ Sensor ${sensorId} not found in sensors object`);
         }
@@ -455,26 +440,20 @@ class ModernFireDashboard {
     }
 
     renderChart(sensorId) {
-        console.log(`🎨 Attempting to render chart for ${sensorId}`);
         const chartContainer = document.getElementById(`${sensorId}-chart`);
         if (!chartContainer) {
-            console.error(`❌ Chart container not found: ${sensorId}-chart`);
             return;
         }
-        console.log(`✅ Chart container found for ${sensorId}`);
         
         const sensor = this.sensors[sensorId];
         if (!sensor) {
-            console.error(`❌ Sensor not found: ${sensorId}`);
             return;
         }
         
         const data = sensor.history;
-        console.log(`📊 Chart data for ${sensorId}:`, data);
-        console.log(`📊 Data length: ${data.length}`);
         
         if (data.length === 0) {
-            console.warn(`⚠️ No data available for ${sensorId}`);
+           
             return;
         }
         
@@ -675,7 +654,6 @@ class ModernFireDashboard {
             }, 600);
         }
         
-        // Only refresh UI with existing real MQTT data - no fake data generation
         this.renderAllSensors();
         this.updateSystemStatus();
         this.showNotification('Dashboard refreshed - using real MQTT data only', 'success');
@@ -762,7 +740,6 @@ class ModernFireDashboard {
             this.showNotification(`Scenario activated: ${scenario.name}`, 'info');
             this.hideScenarioModal();
             
-            console.log(`🎬 Activated scenario: ${scenario.name}`);
         }
     }
 
@@ -839,8 +816,6 @@ class ModernFireDashboard {
             timeElement.textContent = timeString;
         }
     }
-
-    // startRealTimeUpdates method removed - now using real MQTT data instead of fake data generation
 
     checkForAlerts() {
         Object.keys(this.sensors).forEach(sensorId => {
@@ -1037,12 +1012,24 @@ class ModernFireDashboard {
             cancelAnimationFrame(frame);
         });
         
-        console.log('🔥 Dashboard destroyed');
+    }
+
+    updateSystemStatus() {
+        const stats = this.calculateSystemStats();
+        const alertCountEl = document.getElementById('alertCount');
+        const sensorCountEl = document.getElementById('sensorCount');
+        if (alertCountEl) {
+            alertCountEl.textContent = `${stats.total} Active Alerts`;
+        }
+        if (sensorCountEl) {
+            sensorCountEl.textContent = `${stats.online} Sensors Online`;
+        }
+        this.systemState.alertCount = stats.total;
+        this.systemState.sensorCount = stats.online;
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 Loading Modern Fire Detection Dashboard...');
     
     window.modernFireDashboard = new ModernFireDashboard();
     
@@ -1061,19 +1048,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ]
     };
     
-    console.log('🔥 Modern Fire Detection Dashboard v3.0 Ready');
-    console.log('🎨 Futuristic UI activated');
-    console.log('🧠 AI analysis ready');
-    
-    // Check for pending MQTT data and apply it
     if (window.pendingMQTTData) {
         console.log('📡 Applying pending MQTT sensor data to dashboard...');
         
-        // Use the MQTT client's update method if available
         if (window.mqttClient && typeof window.mqttClient.updateDashboardSensors === 'function') {
             window.mqttClient.updateDashboardSensors(window.pendingMQTTData);
+
         } else {
-            // Fallback: directly update the dashboard
             Object.keys(window.pendingMQTTData).forEach(sensorId => {
                 const value = window.pendingMQTTData[sensorId];
                 if (window.modernFireDashboard.sensors[sensorId]) {
@@ -1087,10 +1068,5 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Clear pending data
         delete window.pendingMQTTData;
-        console.log('✅ Pending MQTT data applied to dashboard!');
-    }
-    
-    console.log('📡 Dashboard ready for real MQTT data only - no test functions');
-    console.log('📊 Current view:', window.modernFireDashboard?.systemState?.currentView);
-    console.log('🔥 Charts will update automatically when MQTT data arrives!');
+    }    
 });
