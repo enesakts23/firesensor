@@ -1208,6 +1208,13 @@ class ModernFireDashboard {
                 return;
             }
             
+            // Store data for tooltip functionality
+            canvas.historicalData = historicalData;
+            canvas.sensor = sensor;
+            
+            // Add mouse event listeners for tooltip
+            this.setupCanvasTooltip(canvas, ctx, historicalData, sensor);
+            
             this.drawChart(ctx, canvas, historicalData, sensor);
         }).catch(error => {
             console.error('Error fetching historical data:', error);
@@ -1245,8 +1252,10 @@ class ModernFireDashboard {
             // Convert database data to chart format
             const chartData = result.data.map(item => ({
                 time: this.formatTime(item.time),
+                fullTime: item.time, // Keep full timestamp for tooltip
                 value: item.value,
-                warning: item.warning
+                warning: item.warning,
+                warningBinary: item.warning_binary || 'N/A' // Keep binary data for tooltip
             }));
             
             // Debug: Check for anomalies
@@ -1514,6 +1523,209 @@ class ModernFireDashboard {
         ctx.fillText('!', x, y - 1);
         
         ctx.restore();
+    }
+
+    // Setup canvas tooltip functionality
+    setupCanvasTooltip(canvas, ctx, historicalData, sensor) {
+        let isMouseOverCanvas = false;
+        
+        const handleMouseMove = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Check if mouse is over an anomaly point
+            const hoveredAnomaly = this.findAnomalyAtPosition(x, y, historicalData, canvas);
+            
+            if (hoveredAnomaly) {
+                this.showAnomalyTooltip(e, hoveredAnomaly, sensor);
+                canvas.style.cursor = 'pointer';
+            } else {
+                this.hideAnomalyTooltip();
+                canvas.style.cursor = 'default';
+            }
+        };
+        
+        const handleClick = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // Check if clicked on an anomaly point
+            const clickedAnomaly = this.findAnomalyAtPosition(x, y, historicalData, canvas);
+            
+            if (clickedAnomaly) {
+                this.showAnomalyTooltip(e, clickedAnomaly, sensor);
+                // Keep tooltip visible longer on click
+                setTimeout(() => {
+                    if (!canvas.matches(':hover')) {
+                        this.hideAnomalyTooltip();
+                    }
+                }, 5000);
+            }
+        };
+        
+        const handleMouseLeave = () => {
+            isMouseOverCanvas = false;
+            this.hideAnomalyTooltip();
+            canvas.style.cursor = 'default';
+        };
+        
+        const handleMouseEnter = () => {
+            isMouseOverCanvas = true;
+        };
+        
+        // Remove existing listeners
+        canvas.removeEventListener('mousemove', handleMouseMove);
+        canvas.removeEventListener('click', handleClick);
+        canvas.removeEventListener('mouseleave', handleMouseLeave);
+        canvas.removeEventListener('mouseenter', handleMouseEnter);
+        
+        // Add new listeners
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('click', handleClick);
+        canvas.addEventListener('mouseleave', handleMouseLeave);
+        canvas.addEventListener('mouseenter', handleMouseEnter);
+    }
+    
+    // Find anomaly point at mouse position
+    findAnomalyAtPosition(mouseX, mouseY, historicalData, canvas) {
+        const padding = 40; // Chart padding ile aynı olmalı
+        const rect = canvas.getBoundingClientRect();
+        const chartWidth = rect.width - (padding * 2);
+        const chartHeight = rect.height - (padding * 2);
+        
+        // Find min and max values for scaling
+        const values = historicalData.map(d => d.value);
+        const minValue = Math.min(...values);
+        const maxValue = Math.max(...values);
+        const valueRange = maxValue - minValue || 1;
+        
+        // Check each data point
+        for (let i = 0; i < historicalData.length; i++) {
+            const point = historicalData[i];
+            
+            // Only check anomaly points
+            if (point.warning !== 'warning' && point.warning !== 'critical') {
+                continue;
+            }
+            
+            // Calculate point position (same calculation as in drawChart)
+            const x = padding + (chartWidth * i / (historicalData.length - 1));
+            const y = padding + chartHeight - ((point.value - minValue) / valueRange * chartHeight);
+            
+            // Check if mouse is near this point (within 12px radius for better click area)
+            const distance = Math.sqrt(Math.pow(mouseX - x, 2) + Math.pow(mouseY - y, 2));
+            
+            if (distance <= 12) {
+                return {
+                    ...point,
+                    index: i,
+                    x: x,
+                    y: y
+                };
+            }
+        }
+        
+        return null;
+    }
+    
+    // Show anomaly tooltip
+    showAnomalyTooltip(mouseEvent, anomaly, sensor) {
+        const tooltip = document.getElementById('anomalyTooltip');
+        if (!tooltip) return;
+        
+        // Get anomaly details
+        const anomalyDetails = this.getAnomalyDetails(anomaly.warningBinary);
+        
+        // Format content
+        const header = `${sensor.name} Anomali Detayı`;
+        const warningClass = anomaly.warning === 'critical' ? 'tooltip-critical' : 'tooltip-warning';
+        
+        let content = `
+            <div class="${warningClass}">⚠️ ${anomaly.warning.toUpperCase()} SEVİYE</div>
+            <div>Değer: <span class="tooltip-value">${anomaly.value}${sensor.unit}</span></div>
+            <div>Zaman: <span class="tooltip-time">${this.formatFullTime(anomaly.fullTime)}</span></div>
+            <div>Binary Kod: <span class="tooltip-binary">${anomaly.warningBinary}</span></div>
+            <div style="margin-top: 6px; font-size: 11px;">
+                <strong>Aktif Alarmlar:</strong><br>
+                ${anomalyDetails.join('<br>')}
+            </div>
+        `;
+        
+        // Update tooltip content
+        tooltip.querySelector('.tooltip-header').innerHTML = header;
+        tooltip.querySelector('.tooltip-content').innerHTML = content;
+        
+        // Position tooltip
+        const rect = tooltip.getBoundingClientRect();
+        let left = mouseEvent.clientX + 10;
+        let top = mouseEvent.clientY - 10;
+        
+        // Adjust if tooltip goes off screen
+        if (left + rect.width > window.innerWidth) {
+            left = mouseEvent.clientX - rect.width - 10;
+        }
+        if (top < 0) {
+            top = mouseEvent.clientY + 20;
+        }
+        
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        
+        // Add warning class for styling
+        tooltip.className = `anomaly-tooltip ${anomaly.warning} show`;
+    }
+    
+    // Hide anomaly tooltip
+    hideAnomalyTooltip() {
+        const tooltip = document.getElementById('anomalyTooltip');
+        if (tooltip) {
+            tooltip.classList.remove('show');
+        }
+    }
+    
+    // Get anomaly details from binary string
+    getAnomalyDetails(binaryString) {
+        if (!binaryString || binaryString === 'N/A') {
+            return ['Bilinmeyen alarm türü'];
+        }
+        
+        // Real sensor alarm types - her bit gerçek sensörleri temsil eder
+        const alarmTypes = [
+            'Sıcaklık Sensörü',        // Bit 0 - Temperature
+            'Nem Sensörü',             // Bit 1 - Humidity  
+            'Hava Kalitesi',           // Bit 2 - Air Quality
+            'Gaz Sensörü',             // Bit 3 - Gas Detection
+            'Yüzey Sıcaklığı',         // Bit 4 - Surface Temperature
+            'TVOC Sensörü',            // Bit 5 - Volatile Organic Compounds
+            'eCO2 Sensörü',            // Bit 6 - CO2 Equivalent
+            'NO2 Sensörü'              // Bit 7 - Nitrogen Dioxide
+        ];
+        
+        const details = [];
+        const bits = binaryString.split('');
+        
+        for (let i = 0; i < bits.length && i < alarmTypes.length; i++) {
+            if (bits[i] === '1') {
+                details.push(`🔴 ${alarmTypes[i]} Alarmı`);
+            }
+        }
+        
+        return details.length > 0 ? details : ['Hiçbir spesifik alarm tespit edilmedi'];
+    }
+    
+    // Format full timestamp for tooltip
+    formatFullTime(timeString) {
+        const date = new Date(timeString);
+        return date.toLocaleString('tr-TR', {
+            day: '2-digit',
+            month: '2-digit', 
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+        });
     }
 
     drawNoDataMessage(ctx, canvas) {
